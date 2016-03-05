@@ -4,8 +4,10 @@ require "print_mode"
 require "barcode"
 require "format"
 require "control"
+require "forwardable"
 
 class A2Printer
+  extend Forwardable
 
   ESC_SEQUENCE = 27
   LINE_FEED = 10
@@ -13,6 +15,15 @@ class A2Printer
   NOT_ALLOWED_CHAR = 0x13
 
   MAXIMUM_WIDTH = 384
+
+  CONTROL_METHODS = %i(offline online sleep wake reset).freeze
+  def_delegators :@control, *CONTROL_METHODS
+
+  FORMAT_METHODS = %i(set_size underline_on underline_off justify).freeze
+  def_delegators :@format, *FORMAT_METHODS
+
+  def_delegator :@barcode, :set_height, :set_barcode_height
+  def_delegator :@barcode, :print, :print_barcode
 
   def initialize(connection)
     @connection = connection
@@ -56,7 +67,7 @@ class A2Printer
   end
 
   def println(string)
-    print(string + CARRIAGE_RETURN)
+    print("#{string}#{CARRIAGE_RETURN}")
   end
 
   def write(char)
@@ -64,55 +75,11 @@ class A2Printer
     @connection.write_bytes(char)
   end
 
-  def set_size(size)
-    @format.set_size size
-  end
-
-  def underline_on(weight)
-    @format.underline_on weight
-  end
-
-  def underline_off
-    @format.underline_off
-  end
-
-  def justify(position)
-    @format.justify position
-  end
-
   def print_bitmap(*args)
-    bitmap = obtain_bitmap *args
-
-    return if bitmap.wider_than? MAXIMUM_WIDTH
-    bitmap.print
-  end
-
-  def set_barcode_height(height)
-    @barcode.set_height height
-  end
-
-  def print_barcode(text, type)
-    @barcode.print text, type
-  end
-
-  def offline
-    @control.offline
-  end
-
-  def online
-    @control.online
-  end
-
-  def sleep
-    @control.sleep
-  end
-
-  def wake
-    @control.wake
-  end
-
-  def reset
-    @control.reset
+    obtain_bitmap(*args).tap do |bitmap|
+      return if bitmap.wider_than? MAXIMUM_WIDTH
+      bitmap.print
+    end
   end
 
   def set_default
@@ -120,6 +87,8 @@ class A2Printer
   end
 
   private
+
+  def_delegator :@print_mode, :normal
 
   def line_feed
     write(LINE_FEED)
@@ -147,19 +116,14 @@ class A2Printer
     char == NOT_ALLOWED_CHAR
   end
 
-  def normal
-    @print_mode.normal
-  end
-
   def obtain_bitmap *args
     only_source_provided = (args.size == 1)
 
     if only_source_provided
       source = args[0]
-      bitmap = Bitmap.from_source @connection, source
+      Bitmap.from_source @connection, source
     else
-      bitmap = Bitmap.new @connection, *args
+      Bitmap.new @connection, *args
     end
-    bitmap
   end
 end
