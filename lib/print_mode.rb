@@ -13,12 +13,12 @@ class PrintMode
   end
 
   def set_print_mode(mask)
-    @print_mode |= mask;
+    @print_mode |= mask
     write_print_mode
   end
 
   def unset_print_mode(mask)
-    @print_mode &= ~mask;
+    @print_mode &= ~mask
     write_print_mode
   end
 

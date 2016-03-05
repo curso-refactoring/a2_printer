@@ -47,10 +47,8 @@ class Format
   private
 
   def sanitized_weight weight
-    result = weight
-    result = UNDERLINES[:none] if weight.nil?
-    result = UNDERLINES[:thick] if weight > UNDERLINES[:thick]
-    result
-  end
+    return UNDERLINES[:none] unless weight
 
+    [weight, UNDERLINES[:thick]].min
+  end
 end
